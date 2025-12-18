@@ -22,3 +22,6 @@ uv.lock
 .env
 .python-version
 pyproject.toml
+
+demo.db
+chat_history_db/
