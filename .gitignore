@@ -25,3 +25,4 @@ pyproject.toml
 
 demo.db
 chat_history_db/
+session_state_db/
