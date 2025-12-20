@@ -2,7 +2,9 @@ from agno.agent import Agent
 from agno.models.google import Gemini
 from dotenv import load_dotenv
 from agno.db.sqlite import SqliteDb
+from agno.tools.duckduckgo import DuckDuckGoTools
 load_dotenv()  # loads GOOGLE_API_KEY
+import time
 from textwrap import dedent
 model = Gemini(
     id="gemini-2.5-flash"
@@ -10,34 +12,49 @@ model = Gemini(
 
 db  = SqliteDb(db_file="chat_history_db/chat_history.db")
 
-def add_keypoints(session_state: dict, point: str) -> str:
-    "add key points to session state"
-    points_list = session_state["key_points"]
-    points_list.append(point)
-    return f"{point} added. Key points updated: {points_list}"
+web_search = DuckDuckGoTools()
 
+def add_key_point(session_state: dict, point: str) -> str:
+    """tool to add key points to the session state"""
+    # fetch the list
+    points_list = session_state["key_points"]
+    # add point to the points list
+    points_list.append(point)
+    
+    return f"Point: {point} added to the session state"
+    
+
+# build the agent
 agent = Agent(
+    name="my_agent",
     model=model,
-    name="agent1",
+    db=db,
+    session_id="session_2",
+    user_id="user1",
+    session_state={"key_points": []},
+    tools=[add_key_point, web_search],
+    instructions=dedent("""
+                you are an expert assistant. your task is to:
+                1. Create summary on the topic and stick to the word count if provided.
+                2. You have the capability to access the web using web search tool. try to generate summary with the latest information.
+                3. You have access to a tool called as 'add_key_point' which adds a key_point from the summary to the session state.
+                4. Add key point only when asked for.
+                5. The summary created should include both advantages and disadvantages.
+                """),
+    add_history_to_context=True,
+    num_history_runs=5,
+    add_session_state_to_context=True,
     markdown=True,
-    stream = True,
-    db = db,
-    session_id = "chat_session_1",
-    user_id = "user_1",
-    add_history_to_context = True,
-    add_session_state_to_context =True,
-    num_history_runs = 5,
-    session_state = {"key_points": []},
-    tools = {add_keypoints},
-    instructions = dedent("""You are an expert tutor 
-                          1.) Create summary on the topic and stick to word count
-                          2) you have access to tool called as add_keypoints which helps you add key points to session state.
-                          Use this tool to add key points whenever you find something important in the topic being discussed. 
-                          The session state has a key called key_points which is a list of all the key points added so far.""")
+    stream=True,
 )
 
-agent.print_response("Explain what is Crew AI only in 100 words",stream = True)
+agent.print_response("Write a 50 word summary on the topic: 'AI Agents and its future'. Use the latest information to generate the response.")
+time.sleep(20)
+agent.print_response("add key points from the summary generated above. The number of points depends on the summary")
 
-agent.print_response("Tell me what topic am i talking about",stream = True)
 
-print(agent.get_session_state(session_id="chat_session_1"))
+#agent.print_response("What topic are we talking about?")
+time.sleep(10)
+agent.print_response("List down the key points from the recent summary generated for me in proper format")
+
+print(agent.get_session_state("session_2"))
